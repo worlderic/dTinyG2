@@ -116,20 +116,24 @@ namespace Motate {
 // Pin name and function
 _MAKE_MOTATE_PIN(kLED_USBRXPinNumber, 'A', 5);              // Socket1_DirPinNumber
 
-_MAKE_MOTATE_PIN(kSocket1_StepPinNumber, 'B', 4);            // Socket1_StepPinNumber
-_MAKE_MOTATE_PIN(kSocket1_DirPinNumber, 'A', 0);              // Socket1_DirPinNumber
-_MAKE_MOTATE_PIN(kSocket1_EnablePinNumber, 'A', 1);          // Socket1_EnablePinNumber
+_MAKE_MOTATE_PIN(kSocket1_StepPinNumber, 'B', 5);            // Socket1_StepPinNumber
+_MAKE_MOTATE_PIN(kSocket1_DirPinNumber, 'B', 3);              // Socket1_DirPinNumber
+_MAKE_MOTATE_PIN(kSocket1_EnablePinNumber, 'A', 10);          // Socket1_EnablePinNumber
 
 
-_MAKE_MOTATE_PIN(kSocket2_StepPinNumber, 'B', 5);             // Socket2_StepPinNumber
-_MAKE_MOTATE_PIN(kSocket2_EnablePinNumber, 'C', 1);           // Socket2_EnablePinNumber
-_MAKE_MOTATE_PIN(kSocket2_DirPinNumber, 'C', 2);              // Socket2_DirPinNumber
+_MAKE_MOTATE_PIN(kSocket2_StepPinNumber, 'B', 10);             // Socket2_StepPinNumber
+_MAKE_MOTATE_PIN(kSocket2_EnablePinNumber, 'A', 8);           // Socket2_EnablePinNumber
+_MAKE_MOTATE_PIN(kSocket2_DirPinNumber, 'B', 4);              // Socket2_DirPinNumber
 
-_MAKE_MOTATE_PIN(kSocket3_StepPinNumber, 'A', 10);             // Socket2_StepPinNumber
-_MAKE_MOTATE_PIN(kSocket3_EnablePinNumber, 'C', 7);           // Socket3_EnablePinNumber
-_MAKE_MOTATE_PIN(kSocket3_DirPinNumber, 'C', 8);              // Socket3_DirPinNumber
+_MAKE_MOTATE_PIN(kSocket3_StepPinNumber, 'C', 1);             // Socket2_StepPinNumber
+_MAKE_MOTATE_PIN(kSocket3_EnablePinNumber, 'C', 0);           // Socket3_EnablePinNumber
+_MAKE_MOTATE_PIN(kSocket3_DirPinNumber, 'B', 0);              // Socket3_DirPinNumber
 
 _MAKE_MOTATE_PIN(kDebug1_PinNumber, 'C', 3);              // Socket3_DirPinNumber
+
+_MAKE_MOTATE_PIN(kInput1_PinNumber, 'B', 15);             // Socket2_StepPinNumber
+_MAKE_MOTATE_PIN(kInput2_PinNumber, 'B', 14);             // Socket2_StepPinNumber
+_MAKE_MOTATE_PIN(kInput5_PinNumber, 'B', 13);             // Socket2_StepPinNumber
 
 
 }  // namespace Motate

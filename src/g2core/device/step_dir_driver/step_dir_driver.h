@@ -35,6 +35,7 @@
 
 using Motate::pin_number;
 using Motate::OutputPin;
+using Motate::OutputODPin;
 using Motate::PWMOutputPin;
 using Motate::kStartHigh;
 using Motate::kNormal;
@@ -52,10 +53,10 @@ template <pin_number step_num,  // Setup a stepper template to hold our pins
 struct StepDirStepper final : Stepper  {
     /* stepper pin assignments */
 
-    OutputPin<step_num>    _step;
+	OutputODPin<step_num>    _step;
     uint8_t                _step_downcount;
-    OutputPin<dir_num>     _dir;
-    OutputPin<enable_num>  _enable{kStartHigh};
+    OutputODPin<dir_num>     _dir;
+    OutputODPin<enable_num>  _enable{kStartHigh};
     OutputPin<ms0_num>     _ms0;
     OutputPin<ms1_num>     _ms1;
     OutputPin<ms2_num>     _ms2;
@@ -115,26 +116,26 @@ struct StepDirStepper final : Stepper  {
 
     void _enableImpl() override {
         if (!_enable.isNull()) {
-            _enable.clear();
+            _enable.set();
         }
     };
 
     void _disableImpl() override {
         if (!_enable.isNull()) {
-            _enable.set();
+            _enable.clear();
         }
     };
 
-    void stepStart() override { _step.set(); };
+    void stepStart() override { _step.clear(); };
 
-    void stepEnd() override { _step.clear(); };
+    void stepEnd() override { _step.set(); };
 
     void setDirection(uint8_t new_direction) override {
         if (!_dir.isNull()) {
             if (new_direction == DIRECTION_CW) {
-                _dir.clear();
+                _dir.set();
             } else {
-                _dir.set();  // set the bit for CCW motion
+                _dir.clear();  // set the bit for CCW motion
             }
         }
     };

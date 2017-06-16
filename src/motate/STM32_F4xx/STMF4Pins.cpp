@@ -61,6 +61,10 @@ void PortHardware<'F'>::enableClock()
 }
 
 template<> _pinChangeInterrupt * PortHardware<'A'>::_firstInterrupt = nullptr;
+template<> _pinChangeInterrupt * PortHardware<'B'>::_firstInterrupt = nullptr;
+template<> _pinChangeInterrupt * PortHardware<'C'>::_firstInterrupt = nullptr;
+template<> _pinChangeInterrupt * PortHardware<'D'>::_firstInterrupt = nullptr;
+
 extern "C" void PIOA_Handler(void) {
 
 /*	uint32_t isr = PIOA->PIO_ISR;
@@ -77,9 +81,49 @@ extern "C" void PIOA_Handler(void) {
     */
 }
 
-template<> _pinChangeInterrupt * PortHardware<'B'>::_firstInterrupt = nullptr;
-template<> _pinChangeInterrupt * PortHardware<'C'>::_firstInterrupt = nullptr;
-template<> _pinChangeInterrupt * PortHardware<'D'>::_firstInterrupt = nullptr;
+extern "C" void EXTI0_IRQHandler(void)
+{
+	uint32_t isr = EXTI->PR;
+
+	_pinChangeInterrupt *current = PortHardware<'A'>::_firstInterrupt;
+	while (current != nullptr) {
+		if ((isr & current->pc_mask) && (current->interrupt_handler)) {
+			current->interrupt_handler();
+		}
+		current = current->next;
+	}
+	current = PortHardware<'B'>::_firstInterrupt;
+	while (current != nullptr) {
+		if ((isr & current->pc_mask) && (current->interrupt_handler)) {
+			current->interrupt_handler();
+		}
+		current = current->next;
+	}
+
+	EXTI->PR = isr;
+}
+extern "C" void EXTI15_10_IRQHandler(void)
+{
+	uint32_t isr = EXTI->PR;
+
+	_pinChangeInterrupt *current = PortHardware<'A'>::_firstInterrupt;
+	while (current != nullptr) {
+		if ((isr & current->pc_mask) && (current->interrupt_handler)) {
+			current->interrupt_handler();
+		}
+		current = current->next;
+	}
+	current = PortHardware<'B'>::_firstInterrupt;
+	while (current != nullptr) {
+		if ((isr & current->pc_mask) && (current->interrupt_handler)) {
+			current->interrupt_handler();
+		}
+		current = current->next;
+	}
+
+	EXTI->PR = isr;
+}
+
 
 
 

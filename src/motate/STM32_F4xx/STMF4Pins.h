@@ -42,52 +42,53 @@
 namespace Motate {
 // Numbering is arbitrary:
 enum PinMode : PinMode_t {
-	kUnchanged      = 0,
-			kOutput         = 1,
+			kUnchanged      = 0,
+			kOutput         = 1, // Output PP
 			kInput          = 2,
+			kOutputOD       = 3,	// Output OD
 };
 
 // Numbering is arbitrary, but bit unique for bitwise operations (unlike other architectures):
 enum PinOptions : PinOptions_t {
 	kNormal         = 0,
-	kPullUp         = 1<<1,
+			kPullUp         = 1<<1,
 
-	kDeglitch       = 1<<4,
-	kDebounce       = 1<<5,
+			kDeglitch       = 1<<4,
+			kDebounce       = 1<<5,
 
-	// Set the intialized value of the pin
-	kStartHigh      = 1<<6,
-	kStartLow       = 1<<7,
-	// For use on PWM pins only!
-	kPWMPinInverted = 1<<8,
+			// Set the intialized value of the pin
+			kStartHigh      = 1<<6,
+			kStartLow       = 1<<7,
+			// For use on PWM pins only!
+			kPWMPinInverted = 1<<8,
 };
 
 enum PinInterruptOptions : PinInterruptOptions_t {
 	kPinInterruptsOff                = 0,
 
-	kPinInterruptOnChange            = 1,
+			kPinInterruptOnChange            = 1,
 
-	kPinInterruptOnRisingEdge        = 1<<1,
-	kPinInterruptOnFallingEdge       = 2<<1,
+			kPinInterruptOnRisingEdge        = 1<<1,
+			kPinInterruptOnFallingEdge       = 2<<1,
 
-	kPinInterruptOnLowLevel          = 3<<1,
-	kPinInterruptOnHighLevel         = 4<<1,
+			kPinInterruptOnLowLevel          = 3<<1,
+			kPinInterruptOnHighLevel         = 4<<1,
 
-	kPinInterruptAdvancedMask        = ((1<<3)-1)<<1,
+			kPinInterruptAdvancedMask        = ((1<<3)-1)<<1,
 
-	/* This turns the IRQ on, but doesn't set the timer to ever trigger it. */
-	kPinInterruptOnSoftwareTrigger   = 1<<4,
+			/* This turns the IRQ on, but doesn't set the timer to ever trigger it. */
+			kPinInterruptOnSoftwareTrigger   = 1<<4,
 
-	kPinInterruptTypeMask            = (1<<5)-1,
+			kPinInterruptTypeMask            = (1<<5)-1,
 
-	/* Set priority levels here as well: */
-	kPinInterruptPriorityHighest     = 1<<5,
-	kPinInterruptPriorityHigh        = 1<<6,
-	kPinInterruptPriorityMedium      = 1<<7,
-	kPinInterruptPriorityLow         = 1<<8,
-	kPinInterruptPriorityLowest      = 1<<9,
+			/* Set priority levels here as well: */
+			kPinInterruptPriorityHighest     = 1<<5,
+			kPinInterruptPriorityHigh        = 1<<6,
+			kPinInterruptPriorityMedium      = 1<<7,
+			kPinInterruptPriorityLow         = 1<<8,
+			kPinInterruptPriorityLowest      = 1<<9,
 
-	kPinInterruptPriorityMask        = ((1<<10) - (1<<5))
+			kPinInterruptPriorityMask        = ((1<<10) - (1<<5))
 };
 
 struct _pinChangeInterrupt {
@@ -161,6 +162,36 @@ struct PortHardware {
 #endif
 		}
 	};
+	constexpr IRQn_Type _IRQn(const uintPort_t mask){
+		switch (mask) {
+			case GPIO_PIN_0:
+				return EXTI0_IRQn;
+			case GPIO_PIN_1:
+				return EXTI1_IRQn;
+			case GPIO_PIN_2:
+				return EXTI2_IRQn;
+			case GPIO_PIN_3:
+				return EXTI3_IRQn;
+			case GPIO_PIN_4:
+				return EXTI4_IRQn;
+			case GPIO_PIN_5:
+			case GPIO_PIN_6:
+			case GPIO_PIN_7:
+			case GPIO_PIN_8:
+			case GPIO_PIN_9:
+				return EXTI9_5_IRQn;
+			case GPIO_PIN_10:
+			case GPIO_PIN_11:
+			case GPIO_PIN_12:
+			case GPIO_PIN_13:
+			case GPIO_PIN_14:
+			case GPIO_PIN_15:
+				return EXTI15_10_IRQn;
+			default:
+				return EXTI0_IRQn;
+		}
+
+	}
 	constexpr static const uint32_t peripheralId()
 	{
 		switch (portLetter) {
@@ -202,6 +233,10 @@ struct PortHardware {
 		switch (type) {
 		case kOutput:
 			GPIO_InitStructure.Mode      = GPIO_MODE_OUTPUT_PP;
+			HAL_GPIO_Init(rawPort(), &GPIO_InitStructure);
+			break;
+		case kOutputOD:
+			GPIO_InitStructure.Mode      = GPIO_MODE_OUTPUT_OD;
 			HAL_GPIO_Init(rawPort(), &GPIO_InitStructure);
 			break;
 		case kInput:
@@ -287,62 +322,65 @@ struct PortHardware {
 	};
 	void setInterrupts(const uint32_t interrupts, const uintPort_t mask) {
 		if (interrupts != kPinInterruptsOff) {
+			GPIO_InitTypeDef GPIO_InitStructure;
+
+			enableClock();
+
+
+			GPIO_InitStructure.Pin       = mask;
+
+			GPIO_InitStructure.Pull      = GPIO_NOPULL;
+			GPIO_InitStructure.Speed     = GPIO_SPEED_HIGH;
+			GPIO_InitStructure.Alternate = 0;
 			//rawPort()->PIO_IDR = mask;
 
 			/*Is it an "advanced" interrupt?*/
-					if (interrupts & kPinInterruptAdvancedMask) {
-						//rawPort()->PIO_AIMER = mask;
-						/*Is it an edge interrupt?*/
-						if ((interrupts & kPinInterruptTypeMask) == kPinInterruptOnRisingEdge ||
-								(interrupts & kPinInterruptTypeMask) == kPinInterruptOnFallingEdge) {
-							//rawPort()->PIO_ESR = mask;
-						}
-						else
-							if ((interrupts & kPinInterruptTypeMask) == kPinInterruptOnHighLevel ||
-									(interrupts & kPinInterruptTypeMask) == kPinInterruptOnLowLevel) {
-								//rawPort()->PIO_LSR = mask;
-							}
-						/*Rising Edge/High Level, or Falling Edge/LowLevel?*/
-						if ((interrupts & kPinInterruptTypeMask) == kPinInterruptOnRisingEdge ||
-								(interrupts & kPinInterruptTypeMask) == kPinInterruptOnHighLevel) {
-							//rawPort()->PIO_REHLSR = mask;
-						}
-						else
-						{
-							//rawPort()->PIO_FELLSR = mask;
-						}
-					}
-					else
-					{
-						//rawPort()->PIO_AIMDR = mask;
-					}
+			if (interrupts & kPinInterruptAdvancedMask) {
+				/*Is it an edge interrupt?*/
+				if ((interrupts & kPinInterruptTypeMask) == kPinInterruptOnRisingEdge ||
+						(interrupts & kPinInterruptTypeMask) == kPinInterruptOnFallingEdge) {
 
-					/* Set interrupt priority */
-					if (interrupts & kPinInterruptPriorityMask) {
-						if (interrupts & kPinInterruptPriorityHighest) {
-							//NVIC_SetPriority(_IRQn(), 0);
-						}
-						else if (interrupts & kPinInterruptPriorityHigh) {
-							//NVIC_SetPriority(_IRQn(), 3);
-						}
-						else if (interrupts & kPinInterruptPriorityMedium) {
-							//NVIC_SetPriority(_IRQn(), 7);
-						}
-						else if (interrupts & kPinInterruptPriorityLow) {
-							//NVIC_SetPriority(_IRQn(), 11);
-						}
-						else if (interrupts & kPinInterruptPriorityLowest) {
-							//NVIC_SetPriority(_IRQn(), 15);
-						}
+					if((interrupts & kPinInterruptTypeMask) == kPinInterruptOnRisingEdge){
+						GPIO_InitStructure.Mode = GPIO_MODE_IT_RISING;
+					}else{
+						GPIO_InitStructure.Mode = GPIO_MODE_IT_FALLING;
 					}
-					/* Enable the IRQ */
-					//NVIC_EnableIRQ(_IRQn());
-					/* Enable the interrupt */
-					//rawPort()->PIO_IER = mask;
+				}
+			}
+			else
+			{
+				// kPinInterruptOnChange
+				GPIO_InitStructure.Mode = GPIO_MODE_IT_RISING_FALLING;
+
+			}
+			HAL_GPIO_Init(rawPort(), &GPIO_InitStructure);
+
+			/* Set interrupt priority */
+			if (interrupts & kPinInterruptPriorityMask) {
+				if (interrupts & kPinInterruptPriorityHighest) {
+					NVIC_SetPriority(_IRQn(mask), 0);
+				}
+				else if (interrupts & kPinInterruptPriorityHigh) {
+					NVIC_SetPriority(_IRQn(mask), 3);
+				}
+				else if (interrupts & kPinInterruptPriorityMedium) {
+					NVIC_SetPriority(_IRQn(mask), 7);
+				}
+				else if (interrupts & kPinInterruptPriorityLow) {
+					NVIC_SetPriority(_IRQn(mask), 11);
+				}
+				else if (interrupts & kPinInterruptPriorityLowest) {
+					NVIC_SetPriority(_IRQn(mask), 15);
+				}
+			}
+			/* Enable the IRQ */
+			NVIC_EnableIRQ(_IRQn(mask));
+			/* Enable the interrupt */
+			//rawPort()->PIO_IER = mask;
 		} else {
 			//rawPort()->PIO_IDR = mask;
 			//if (0)//rawPort()->PIO_ISR == 0)
-			//NVIC_DisableIRQ(_IRQn());
+			NVIC_DisableIRQ(_IRQn(mask));
 		}
 	};
 
@@ -380,6 +418,7 @@ struct ReversePinLookup<registerChar, registerPin> : Pin<pinNum> { \
 	ReversePinLookup() {}; \
 	ReversePinLookup(const PinMode type, const PinOptions_t options = kNormal) : Pin<pinNum>(type, options) {}; \
 };
+
 
 
 
@@ -505,13 +544,13 @@ using LookupADCPinByADC = ADCPin< ReverseADCPin< adcNum >::number >;
 #define _MAKE_MOTATE_SPI_CS_PIN(registerChar, registerPin, spiNumber, peripheralAorB, csNum) \
 		template<> \
 		struct SPIChipSelectPin< ReversePinLookup<registerChar, registerPin>::number > : ReversePinLookup<registerChar, registerPin> { \
-		SPIChipSelectPin() : ReversePinLookup<registerChar, registerPin>(kPeripheral ## peripheralAorB) {}; \
-		static constexpr bool is_real = true; \
-		static constexpr uint8_t spiNum = spiNumber; \
-		static constexpr uint8_t csNumber =  csNum; \
-		static constexpr uint8_t csValue  = ~csNum; \
-		static constexpr bool usesDecoder = false; \
-	};
+	SPIChipSelectPin() : ReversePinLookup<registerChar, registerPin>(kPeripheral ## peripheralAorB) {}; \
+	static constexpr bool is_real = true; \
+	static constexpr uint8_t spiNum = spiNumber; \
+	static constexpr uint8_t csNumber =  csNum; \
+	static constexpr uint8_t csValue  = ~csNum; \
+	static constexpr bool usesDecoder = false; \
+};
 
 #define _MAKE_MOTATE_SPI_MISO_PIN(registerChar, registerPin, spiNumber, peripheralAorB)\
 		template<>\
@@ -585,16 +624,16 @@ using LookupADCPinByADC = ADCPin< ReverseADCPin< adcNum >::number >;
 	void setInterrupts(const uint32_t interrupts); /*Will cause a failure if used.*/\
 		static const uint8_t uartNum = uartNumVal;\
 		static const bool is_real = true;\
-	};
+};
 
 #pragma mark ClockOutputPin
-	/**************************************************
-	 *
-	 * Clock Output PIN METADATA and wiring: CLKOutPin
-	 *
-	 * Provides: _MAKE_MOTATE_CLOCK_OUTPUT_PIN
-	 *
-	 **************************************************/
+/**************************************************
+ *
+ * Clock Output PIN METADATA and wiring: CLKOutPin
+ *
+ * Provides: _MAKE_MOTATE_CLOCK_OUTPUT_PIN
+ *
+ **************************************************/
 
 #define _MAKE_MOTATE_CLOCK_OUTPUT_PIN(registerChar, registerPin, clockNumber, peripheralAorB)\
 		template<>\
@@ -613,6 +652,6 @@ using LookupADCPinByADC = ADCPin< ReverseADCPin< adcNum >::number >;
 		void operator=(const bool value); /*Will cause a failure if used.*/\
 		};
 
-	} // end namespace Motate
+} // end namespace Motate
 
 #endif /* end of include guard: SAMPINS_H_ONCE */

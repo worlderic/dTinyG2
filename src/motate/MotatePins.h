@@ -293,6 +293,20 @@ namespace Motate {
     private: /* Make these private to catch them early. */
         void init(const PinMode type, const PinOptions_t options = kNormal); /* Intentially not defined. */
     };
+    template<pin_number pinNum>
+    struct OutputODPin : Pin<pinNum> {
+    	OutputODPin() : Pin<pinNum>(kOutputOD) {};
+    	OutputODPin(const PinOptions_t options) : Pin<pinNum>(kOutputOD, options) {};
+        void init(const PinOptions_t options = kNormal) {Pin<pinNum>::init(kOutputOD, options);};
+        uint32_t get() {
+            return Pin<pinNum>::getOutputValue();
+        };
+        void operator=(const bool value) { Pin<pinNum>::write(value); };
+        /*Override these to pick up new methods */
+        operator bool() { return (get() != 0); };
+    private: /* Make these private to catch them early. */
+        void init(const PinMode type, const PinOptions_t options = kNormal); /* Intentially not defined. */
+    };
 
 
 #pragma mark IRQPin / LookupIRQPin

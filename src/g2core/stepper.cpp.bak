@@ -76,7 +76,6 @@ extern OutputPin<kDebug3_PinNumber> debug_pin3;
 //extern OutputPin<kDebug4_PinNumber> debug_pin4;
 
 dda_timer_type dda_timer     {kTimerUpToMatch, FREQUENCY_DDA};      // stepper pulse generation
-load_timer_type load_timer;         // triggers load of next stepper segment
 exec_timer_type exec_timer;         // triggers calculation of next+1 stepper segment
 fwd_plan_timer_type fwd_plan_timer; // triggers planning of next block
 
@@ -125,15 +124,12 @@ void stepper_init()
     // If you need more pulse width you need to drop the DDA clock rate
     dda_timer.setInterrupts(kInterruptOnOverflow | kInterruptPriorityHighest);
 
-    // setup software interrupt load timer
-    load_timer.setInterrupts(kInterruptOnSoftwareTrigger | kInterruptPriorityHigh);
-
     // setup software interrupt exec timer & initial condition
-    exec_timer.setInterrupts(kInterruptOnSoftwareTrigger | kInterruptPriorityMedium);
+    exec_timer.setInterrupts(kInterruptOnSoftwareTrigger | kInterruptPriorityHigh);
     st_pre.buffer_state = PREP_BUFFER_OWNED_BY_EXEC;
 
     // setup software interrupt forward plan timer & initial condition
-    fwd_plan_timer.setInterrupts(kInterruptOnSoftwareTrigger | kInterruptPriorityLow);
+    fwd_plan_timer.setInterrupts(kInterruptOnSoftwareTrigger | kInterruptPriorityMedium);
 
     // setup motor power levels and apply power level to stepper drivers
     for (uint8_t motor=0; motor<MOTORS; motor++) {
@@ -223,7 +219,11 @@ stat_t st_motor_power_callback()     // called by controller
     }
 
     bool have_actually_stopped = false;
-    if ((!st_runtime_isbusy()) && (st_pre.buffer_state != PREP_BUFFER_OWNED_BY_LOADER)) {    // if there are no moves to load...
+    if ((!st_runtime_isbusy()) &&
+        (st_pre.buffer_state != PREP_BUFFER_OWNED_BY_LOADER) &&
+        (cm_get_cycle_state() == CYCLE_OFF)
+        )
+    {    // if there are no moves to load...
         have_actually_stopped = true;
     }
 
@@ -259,7 +259,6 @@ namespace Motate {            // Must define timer interrupts inside the Motate 
 template<>
 void dda_timer_type::interrupt()
 {
-	debug_pin1.set();
 
     dda_timer.getInterruptCause();  // clear interrupt condition
 
@@ -286,7 +285,6 @@ void dda_timer_type::interrupt()
     // process last DDA tick after end of segment
     if (st_run.dda_ticks_downcount == 0) {
         dda_timer.stop(); // turn it off or it will keep stepping out the last segment
-        debug_pin1.clear();
         return;
     }
 
@@ -344,7 +342,6 @@ void dda_timer_type::interrupt()
     if (--st_run.dda_ticks_downcount == 0) {
         _load_move();       // load the next move at the current interrupt level
     }
-    debug_pin1.clear();
 } // MOTATE_TIMER_INTERRUPT
 } // namespace Motate
 
@@ -357,10 +354,7 @@ void dda_timer_type::interrupt()
 void st_request_exec_move()
 {
     stepper_debug("e");
-    if (st_pre.buffer_state == PREP_BUFFER_OWNED_BY_EXEC) { // bother interrupting
-        exec_timer.setInterruptPending();
-        return;
-    }
+    exec_timer.setInterruptPending();
     stepper_debug("!\n");
 }
 
@@ -421,20 +415,9 @@ void st_request_load_move()
     stepper_debug("l");
     if (st_pre.buffer_state == PREP_BUFFER_OWNED_BY_LOADER) {       // bother interrupting
         stepper_debug("_");
-        load_timer.setInterruptPending();
+        _load_move();
     }
 }
-
-namespace Motate {    // Define timer inside Motate namespace
-    template<>
-    void load_timer_type::interrupt()
-    {
-        load_timer.getInterruptCause();                             // read SR to clear interrupt condition
-        stepper_debug("L>");
-        _load_move();
-        stepper_debug("L+\n");
-    }
-} // namespace Motate
 
 /****************************************************************************************
  * _load_move() - Dequeue move and load into stepper runtime structure
@@ -457,7 +440,16 @@ static void _load_move()
         return;                                                    // exit if the runtime is busy
     }
     if (st_pre.buffer_state != PREP_BUFFER_OWNED_BY_LOADER) {    // if there are no moves to load...
-		
+
+        if (cm.motion_state == MOTION_RUN)  {
+#if IN_DEBUGGER == 1
+//#warning debbugger REQUIRED for running this firmware!
+//            __asm__("BKPT"); // attempted to _load_move with PREP_BUFFER_OWNED_BY_EXEC and cm.motion_state == MOTION_RUN
+#endif
+            st_request_exec_move();
+            return;
+        }
+
 	// ...start motor power timeouts
 	//	for (uint8_t motor = MOTOR_1; motor < MOTORS; motor++) {
 	//		Motors[motor]->motionStopped();    
@@ -477,7 +469,7 @@ static void _load_move()
 #if (MOTORS > 5)
         motor_6.motionStopped();    // ...start motor power timeouts
 #endif
-        stepper_debug("•");
+        stepper_debug("â€˘");
         return;
     } // if (st_pre.buffer_state != PREP_BUFFER_OWNED_BY_LOADER)
 
@@ -670,7 +662,7 @@ static void _load_move()
 
 stat_t st_prep_line(float travel_steps[], float following_error[], float segment_time)
 {
-    stepper_debug("😶");
+    stepper_debug("đź�¶");
     // trap assertion failures and other conditions that would prevent queuing the line
     if (st_pre.buffer_state != PREP_BUFFER_OWNED_BY_EXEC) {     // never supposed to happen
         return (cm_panic(STAT_INTERNAL_ERROR, "st_prep_line() prep sync error"));
@@ -678,8 +670,8 @@ stat_t st_prep_line(float travel_steps[], float following_error[], float segment
         return (cm_panic(STAT_PREP_LINE_MOVE_TIME_IS_INFINITE, "st_prep_line()"));
     } else if (isnan(segment_time)) {                           // never supposed to happen
         return (cm_panic(STAT_PREP_LINE_MOVE_TIME_IS_NAN, "st_prep_line()"));
-    } else if (segment_time < EPSILON) {
-        return (STAT_MINIMUM_TIME_MOVE);
+//    } else if (segment_time < EPSILON) {
+//        return (STAT_MINIMUM_TIME_MOVE);
     }
     // setup segment parameters
     // - dda_ticks is the integer number of DDA clock ticks needed to play out the segment
@@ -749,7 +741,7 @@ stat_t st_prep_line(float travel_steps[], float following_error[], float segment
     }
     st_pre.block_type = BLOCK_TYPE_ALINE;
     st_pre.buffer_state = PREP_BUFFER_OWNED_BY_LOADER;    // signal that prep buffer is ready
-    stepper_debug("👍🏻");
+    stepper_debug("đź‘ŤđźŹ»");
     return (STAT_OK);
 }
 
@@ -806,7 +798,7 @@ static void _set_hw_microsteps(const uint8_t motor, const uint8_t microsteps)
     if (motor >= MOTORS) {return;}
 
     Motors[motor]->setMicrosteps(microsteps);
-    }
+}
 
 
 /***********************************************************************************
@@ -839,15 +831,8 @@ static int8_t _get_motor(const index_t index)
 static void _set_motor_steps_per_unit(nvObj_t *nv)
 {
     uint8_t m = _get_motor(nv->index);
-
-    st_cfg.mot[m].units_per_step = 0;
-    st_cfg.mot[m].steps_per_unit = 0;
-
-    if(st_cfg.mot[m].microsteps != 0)
-    {
-    	st_cfg.mot[m].units_per_step = (st_cfg.mot[m].travel_rev * st_cfg.mot[m].step_angle) / (360.0 * st_cfg.mot[m].microsteps);
-    	st_cfg.mot[m].steps_per_unit = 1/st_cfg.mot[m].units_per_step;
-    }
+    st_cfg.mot[m].units_per_step = (st_cfg.mot[m].travel_rev * st_cfg.mot[m].step_angle) / (360 * st_cfg.mot[m].microsteps);
+    st_cfg.mot[m].steps_per_unit = 1/st_cfg.mot[m].units_per_step;
 }
 
 /* PER-MOTOR FUNCTIONS

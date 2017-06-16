@@ -68,7 +68,7 @@ typedef struct srSingleton {
     index_t index_of_stat_variable;                     // like it says, the index of the "stat" variable
     index_t stat_index;                                 // table index value for stat - determined during initialization
     uint8_t throttle_counter;                           // slow down SRs when in a constrained time (not phat_city)
-    float status_report_list[NV_STATUS_REPORT_LEN];   // status report elements to report
+    index_t status_report_list[NV_STATUS_REPORT_LEN];   // status report elements to report
     float status_report_value[NV_STATUS_REPORT_LEN];    // previous values for filtered reporting
 
 } srSingleton_t;

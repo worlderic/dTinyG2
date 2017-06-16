@@ -259,8 +259,6 @@ namespace Motate {            // Must define timer interrupts inside the Motate 
 template<>
 void dda_timer_type::interrupt()
 {
-	debug_pin1.set();
-
     dda_timer.getInterruptCause();  // clear interrupt condition
 
     // clear all steps from the previous interrupt
@@ -286,7 +284,6 @@ void dda_timer_type::interrupt()
     // process last DDA tick after end of segment
     if (st_run.dda_ticks_downcount == 0) {
         dda_timer.stop(); // turn it off or it will keep stepping out the last segment
-        debug_pin1.clear();
         return;
     }
 
@@ -344,7 +341,6 @@ void dda_timer_type::interrupt()
     if (--st_run.dda_ticks_downcount == 0) {
         _load_move();       // load the next move at the current interrupt level
     }
-    debug_pin1.clear();
 } // MOTATE_TIMER_INTERRUPT
 } // namespace Motate
 
